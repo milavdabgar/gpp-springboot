@@ -15,13 +15,22 @@ import lombok.NoArgsConstructor;
 public class ProjectRequirements {
     
     @Builder.Default
-    private Boolean power = false;
+    private Boolean needsElectricity = false;
     
     @Builder.Default
-    private Boolean internet = false;
+    private Boolean needsWater = false;
     
     @Builder.Default
-    private Boolean specialSpace = false;
+    private Boolean needsGas = false;
+    
+    @Builder.Default
+    private Boolean needsInternet = false;
+    
+    @Builder.Default
+    private Boolean needsDisplay = false;
+    
+    @Builder.Default
+    private Boolean needsExtraSpace = false;
     
     @Column(columnDefinition = "text")
     @Builder.Default

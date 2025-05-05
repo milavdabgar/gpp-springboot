@@ -38,7 +38,7 @@ import lombok.NoArgsConstructor;
 public class Project {
     
     public enum Status {
-        DRAFT, SUBMITTED, APPROVED, REJECTED, COMPLETED
+        DRAFT, PENDING, SUBMITTED, APPROVED, REJECTED, COMPLETED
     }
     
     @Id
@@ -67,20 +67,27 @@ public class Project {
     @Builder.Default
     private ProjectRequirements requirements = new ProjectRequirements();
     
-    @Embedded
-    private ProjectGuide guide;
+    // Guide information
+    @Column(name = "guide_name")
+    private String guideName;
+    
+    @Column(name = "guide_email")
+    private String guideEmail;
+    
+    @Column(name = "guide_phone")
+    private String guidePhone;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
-    private ProjectTeam team;
+    private Team team;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "event_id")
-    private ProjectEvent event;
+    private Event event;
     
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id")
-    private ProjectLocation location;
+    private Location location;
     
     @Embedded
     @AttributeOverrides({

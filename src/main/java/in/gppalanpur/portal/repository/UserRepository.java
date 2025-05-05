@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import in.gppalanpur.portal.entity.Department;
+import in.gppalanpur.portal.entity.Student;
 import in.gppalanpur.portal.entity.User;
 
 @Repository
@@ -43,4 +44,28 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     // Helper method to find all users by department without pagination
     @Query("SELECT u FROM User u WHERE u.department = :department")
     List<User> findByDepartment(@Param("department") Department department);
+    
+    /**
+     * Find a student by user ID.
+     * 
+     * @param userId The ID of the user
+     * @return Optional containing the student if found
+     */
+    @Query("SELECT s FROM Student s WHERE s.user.id = :userId")
+    Optional<Student> findStudentByUserId(@Param("userId") Long userId);
+    
+    /**
+     * Find the HOD (Head of Department) for a specific department.
+     * 
+     * @param departmentId The ID of the department
+     * @return Optional containing the HOD if found
+     */
+    default Optional<User> findHodByDepartmentId(Long departmentId) {
+        return findAll().stream()
+                .filter(user -> user.getRoles() != null && 
+                        user.getRoles().contains("ROLE_hod") && 
+                        user.getDepartment() != null && 
+                        user.getDepartment().getId().equals(departmentId))
+                .findFirst();
+    }
 }
