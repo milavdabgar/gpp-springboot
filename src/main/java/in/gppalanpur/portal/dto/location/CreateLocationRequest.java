@@ -34,6 +34,8 @@ public class CreateLocationRequest {
     
     private Integer capacity;
     
+    private Integer position;
+    
     @NotNull(message = "Department ID is required")
     @JsonProperty("departmentId")
     private Long departmentId;

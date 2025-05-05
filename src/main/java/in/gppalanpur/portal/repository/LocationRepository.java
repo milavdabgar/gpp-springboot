@@ -149,6 +149,74 @@ public interface LocationRepository extends JpaRepository<Location, Long>, JpaSp
     long countByProjectIsNotNull();
     
     /**
+     * Count locations by assigned status.
+     * 
+     * @param isAssigned Whether locations are assigned
+     * @return Number of locations with the specified assigned status
+     */
+    long countByIsAssigned(boolean isAssigned);
+    
+    /**
+     * Find locations by assigned status.
+     * 
+     * @param isAssigned Whether locations are assigned
+     * @return List of locations with the specified assigned status
+     */
+    List<Location> findByIsAssigned(boolean isAssigned);
+    
+    /**
+     * Find locations by assigned status with pagination.
+     * 
+     * @param isAssigned Whether locations are assigned
+     * @param pageable Pagination parameters
+     * @return Page of locations with the specified assigned status
+     */
+    Page<Location> findByIsAssigned(boolean isAssigned, Pageable pageable);
+    
+    /**
+     * Count locations by department and assigned status.
+     * 
+     * @param department Department to filter by
+     * @param isAssigned Whether locations are assigned
+     * @return Number of locations with the specified department and assigned status
+     */
+    long countByDepartmentAndIsAssigned(Department department, boolean isAssigned);
+    
+    /**
+     * Count locations by section.
+     * 
+     * @param section Section to filter by
+     * @return Number of locations in the section
+     */
+    long countBySection(String section);
+    
+    /**
+     * Count locations by section and assigned status.
+     * 
+     * @param section Section to filter by
+     * @param isAssigned Whether locations are assigned
+     * @return Number of locations with the specified section and assigned status
+     */
+    long countBySectionAndIsAssigned(String section, boolean isAssigned);
+    
+    /**
+     * Count locations by event.
+     * 
+     * @param event Event to filter by
+     * @return Number of locations for the event
+     */
+    long countByEvent(Event event);
+    
+    /**
+     * Count locations by event and assigned status.
+     * 
+     * @param event Event to filter by
+     * @param isAssigned Whether locations are assigned
+     * @return Number of locations with the specified event and assigned status
+     */
+    long countByEventAndIsAssigned(Event event, boolean isAssigned);
+    
+    /**
      * Find locations by event.
      * 
      * @param event Event to filter by

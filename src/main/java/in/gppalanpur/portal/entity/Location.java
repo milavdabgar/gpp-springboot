@@ -49,7 +49,13 @@ public class Location {
     private Integer capacity;
     
     @Column(name = "is_active")
-    private boolean isActive;
+    private Boolean isActive;
+    
+    @Column(name = "position")
+    private Integer position;
+    
+    @Column(name = "is_assigned")
+    private Boolean isAssigned;
     
     @ManyToOne
     @JoinColumn(name = "department_id")

@@ -7,9 +7,11 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
@@ -88,6 +90,8 @@ public class LocationServiceImpl implements LocationService {
                 .floor(request.getFloor())
                 .room(request.getRoom())
                 .capacity(request.getCapacity())
+                .position(request.getPosition())
+                .isAssigned(false) // New locations are not assigned by default
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
                 .department(department)
                 .event(event)
@@ -137,14 +141,24 @@ public class LocationServiceImpl implements LocationService {
             location.setCapacity(request.getCapacity());
         }
         
-        if (request.getIsActive() != null) {
-            location.setIsActive(request.getIsActive());
+        if (request.getPosition() != null) {
+            location.setPosition(request.getPosition());
         }
         
         if (request.getDepartmentId() != null) {
             Department department = departmentRepository.findById(request.getDepartmentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + request.getDepartmentId()));
             location.setDepartment(department);
+        }
+        
+        if (request.getEventId() != null) {
+            Event event = eventRepository.findById(request.getEventId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Event not found with id: " + request.getEventId()));
+            location.setEvent(event);
+        }
+        
+        if (request.getIsActive() != null) {
+            location.setIsActive(request.getIsActive());
         }
         
         location.setUpdatedBy(updater);
@@ -187,11 +201,7 @@ public class LocationServiceImpl implements LocationService {
         
         if (isAssigned != null) {
             spec = spec.and((root, query, cb) -> {
-                if (isAssigned) {
-                    return cb.isNotNull(root.get("project"));
-                } else {
-                    return cb.isNull(root.get("project"));
-                }
+                return cb.equal(root.get("isAssigned"), isAssigned);
             });
         }
         
@@ -242,6 +252,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
         location.setProject(project);
+        location.setIsAssigned(true);
         location.setUpdatedBy(updater);
         
         location = locationRepository.save(location);
@@ -259,6 +270,7 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
         location.setProject(null);
+        location.setIsAssigned(false);
         location.setUpdatedBy(updater);
         
         location = locationRepository.save(location);
@@ -270,7 +282,7 @@ public class LocationServiceImpl implements LocationService {
     public Map<String, Object> getLocationStatistics() {
         long totalLocations = locationRepository.count();
         long activeLocations = locationRepository.countByIsActiveTrue();
-        long assignedLocations = locationRepository.countByProjectIsNotNull();
+        long assignedLocations = locationRepository.countByIsAssigned(true);
         
         Map<String, Object> statistics = new HashMap<>();
         statistics.put("totalLocations", totalLocations);
@@ -280,14 +292,68 @@ public class LocationServiceImpl implements LocationService {
         
         // Locations by department
         List<Department> departments = departmentRepository.findAll();
-        Map<String, Long> locationsByDepartment = new HashMap<>();
+        Map<String, Object> locationsByDepartment = new HashMap<>();
         
         for (Department department : departments) {
-            long count = locationRepository.countByDepartment(department);
-            locationsByDepartment.put(department.getName(), count);
+            Map<String, Object> departmentStats = new HashMap<>();
+            long totalCount = locationRepository.countByDepartment(department);
+            long activeCount = locationRepository.countByDepartmentAndIsActiveTrue(department);
+            long assignedCount = locationRepository.countByDepartmentAndIsAssigned(department, true);
+            
+            departmentStats.put("total", totalCount);
+            departmentStats.put("active", activeCount);
+            departmentStats.put("assigned", assignedCount);
+            departmentStats.put("available", activeCount - assignedCount);
+            
+            locationsByDepartment.put(department.getName(), departmentStats);
         }
         
         statistics.put("byDepartment", locationsByDepartment);
+        
+        // Locations by section
+        List<Location> allLocations = locationRepository.findAll();
+        Map<String, Set<String>> sections = new HashMap<>();
+        Map<String, Object> locationsBySection = new HashMap<>();
+        
+        // Get unique sections
+        for (Location location : allLocations) {
+            if (location.getSection() != null && !location.getSection().isEmpty()) {
+                sections.computeIfAbsent(location.getSection(), k -> new HashSet<>());
+            }
+        }
+        
+        // Get statistics for each section
+        for (String section : sections.keySet()) {
+            Map<String, Object> sectionStats = new HashMap<>();
+            long totalCount = locationRepository.countBySection(section);
+            long assignedCount = locationRepository.countBySectionAndIsAssigned(section, true);
+            
+            sectionStats.put("total", totalCount);
+            sectionStats.put("assigned", assignedCount);
+            sectionStats.put("available", totalCount - assignedCount);
+            
+            locationsBySection.put(section, sectionStats);
+        }
+        
+        statistics.put("bySection", locationsBySection);
+        
+        // Locations by event
+        List<Event> events = eventRepository.findAll();
+        Map<String, Object> locationsByEvent = new HashMap<>();
+        
+        for (Event event : events) {
+            Map<String, Object> eventStats = new HashMap<>();
+            long totalCount = locationRepository.countByEvent(event);
+            long assignedCount = locationRepository.countByEventAndIsAssigned(event, true);
+            
+            eventStats.put("total", totalCount);
+            eventStats.put("assigned", assignedCount);
+            eventStats.put("available", totalCount - assignedCount);
+            
+            locationsByEvent.put(event.getName(), eventStats);
+        }
+        
+        statistics.put("byEvent", locationsByEvent);
         
         return statistics;
     }
@@ -316,7 +382,9 @@ public class LocationServiceImpl implements LocationService {
                 .floor(location.getFloor())
                 .room(location.getRoom())
                 .capacity(location.getCapacity())
-                .isActive(location.isActive())
+                .position(location.getPosition())
+                .isAssigned(location.getIsAssigned())
+                .isActive(location.getIsActive())
                 .departmentId(location.getDepartment() != null ? location.getDepartment().getId() : null)
                 .departmentName(location.getDepartment() != null ? location.getDepartment().getName() : null)
                 .projectId(location.getProject() != null ? location.getProject().getId() : null)
@@ -447,7 +515,7 @@ public class LocationServiceImpl implements LocationService {
                         location.getCapacity(),
                         location.getDepartment() != null ? location.getDepartment().getId() : null,
                         location.getDepartment() != null ? location.getDepartment().getName() : null,
-                        location.isActive()
+                        location.getIsActive()
                 );
             }
             

@@ -31,8 +31,13 @@ public class UpdateLocationRequest {
     
     private Integer capacity;
     
+    private Integer position;
+    
     @JsonProperty("departmentId")
     private Long departmentId;
+    
+    @JsonProperty("eventId")
+    private Long eventId;
     
     @JsonProperty("isActive")
     private Boolean isActive;

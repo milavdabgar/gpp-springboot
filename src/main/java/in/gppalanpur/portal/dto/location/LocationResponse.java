@@ -28,6 +28,8 @@ public class LocationResponse {
     private String room;
     private Integer capacity;
     private Boolean isActive;
+    private Integer position;
+    private Boolean isAssigned;
     
     // Department info
     private Long departmentId;
