@@ -54,7 +54,8 @@ public class ProjectTeam {
     @JoinColumn(name = "event_id")
     private ProjectEvent event;
     
-    @OneToMany(mappedBy = "team")
+    @OneToMany
+    @JoinColumn(name = "team_id")
     @Builder.Default
     private List<Project> projects = new ArrayList<>();
     

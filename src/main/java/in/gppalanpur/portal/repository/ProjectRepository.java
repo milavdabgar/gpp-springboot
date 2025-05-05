@@ -73,7 +73,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     @Query("SELECT e.name as event, COUNT(p) as count FROM Project p JOIN p.event e GROUP BY e.name")
     Map<String, Long> countByEvent();
     
-    @Query("SELECT p FROM Project p WHERE p.event = :event AND p.centralEvaluation.completed = true ORDER BY p.centralEvaluation.score DESC")
+    @Query("SELECT p FROM Project p WHERE p.event = :event AND p.centralEvaluation.completed = :completed ORDER BY p.centralEvaluation.score DESC")
     List<Project> findByEventAndCentralEvaluationCompletedOrderByScoreDesc(@Param("event") Event event, @Param("completed") boolean completed);
 
     

@@ -19,6 +19,10 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import in.gppalanpur.portal.entity.Department;
+import in.gppalanpur.portal.entity.Project;
+import in.gppalanpur.portal.entity.ProjectEvent;
+import in.gppalanpur.portal.entity.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -55,7 +59,8 @@ public class ProjectLocation {
     @JoinColumn(name = "event_id")
     private ProjectEvent event;
     
-    @OneToOne(mappedBy = "location", fetch = FetchType.LAZY)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
     private Project project;
     
     @Builder.Default
