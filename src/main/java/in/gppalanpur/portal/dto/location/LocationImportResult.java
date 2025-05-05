@@ -1,6 +1,7 @@
 package in.gppalanpur.portal.dto.location;
 
 import java.util.List;
+import java.util.Map;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,5 +19,5 @@ public class LocationImportResult {
     private int totalProcessed;
     private int successCount;
     private int errorCount;
-    private List<String> errors;
+    private List<Map<String, String>> errors;
 }

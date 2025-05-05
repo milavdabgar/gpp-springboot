@@ -38,6 +38,10 @@ public class LocationResponse {
     private String projectName;
     private String projectTeamName;
     
+    // Event info
+    private Long eventId;
+    private String eventName;
+    
     // Metadata
     private Long createdById;
     private String createdByName;

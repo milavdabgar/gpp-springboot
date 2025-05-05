@@ -38,6 +38,9 @@ public class CreateLocationRequest {
     @JsonProperty("departmentId")
     private Long departmentId;
     
+    @JsonProperty("eventId")
+    private Long eventId;
+    
     @JsonProperty("isActive")
     private Boolean isActive;
 }

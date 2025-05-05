@@ -48,9 +48,14 @@ public class LocationController {
     @GetMapping
     @Operation(summary = "Get all locations")
     public ResponseEntity<ApiResponse<List<LocationResponse>>> getAllLocations(
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) Long eventId,
+            @RequestParam(required = false) String section,
+            @RequestParam(required = false) Boolean isAssigned,
             @PageableDefault(size = 10) Pageable pageable) {
         
-        Page<LocationResponse> locationsPage = locationService.getAllLocations(pageable);
+        Page<LocationResponse> locationsPage = locationService.getAllLocations(
+                departmentId, eventId, section, isAssigned, pageable);
         
         PaginatedResponse<LocationResponse> paginatedResponse = PaginatedResponse.<LocationResponse>builder()
                 .page(locationsPage.getNumber() + 1)
@@ -228,6 +233,22 @@ public class LocationController {
                 .message("Event locations retrieved successfully")
                 .data(Map.of("locations", locationsPage.getContent()))
                 .pagination(paginatedResponse)
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/event/{eventId}/sections")
+    @Operation(summary = "Get locations by event grouped by section")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getLocationsByEventGroupedBySection(
+            @PathVariable Long eventId) {
+        
+        Map<String, Object> result = locationService.getLocationsByEventGroupedBySection(eventId);
+        
+        ApiResponse<Map<String, Object>> response = ApiResponse.<Map<String, Object>>builder()
+                .status("success")
+                .message("Event locations retrieved successfully")
+                .data(Map.of("eventLocations", result))
                 .build();
         
         return ResponseEntity.ok(response);

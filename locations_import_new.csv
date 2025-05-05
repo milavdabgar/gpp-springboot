@@ -1,0 +1,6 @@
+name,description,section,building,floor,room,capacity,departmentId,isActive
+Conference Hall,Main conference hall for events,Admin,Admin Block,G,A001,100,1,true
+Electronics Lab,Laboratory for electronics experiments,Electronics,Engineering Block,3,301,20,1,true
+Chemistry Lab,Laboratory for chemistry experiments,Chemistry,Science Block,2,202,25,1,true
+Seminar Room,Room for academic seminars,Seminar,Main Building,2,201,50,1,true
+Computer Lab 2,Secondary computer laboratory,CS,Main Building,1,102,30,1,true

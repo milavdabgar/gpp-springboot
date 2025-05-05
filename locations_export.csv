@@ -2,5 +2,3 @@ id,name,description,section,building,floor,room,capacity,departmentId,department
 1,Computer Lab 1,Main computer laboratory for programming classes,CS,Main Building,1,101,30,1,Computer Science,true
 2,Physics Lab,Laboratory for physics experiments,Physics,Science Block,2,201,25,1,Computer Science,true
 3,Library Reading Room,Quiet study area in the library,Library,Library Building,1,L101,50,1,Computer Science,true
-4,Conference Hall,Main conference hall for events,Admin,Admin Block,G,A001,100,1,Computer Science,true
-5,Electronics Lab,Laboratory for electronics experiments,Electronics,Engineering Block,3,301,20,1,Computer Science,true

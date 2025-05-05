@@ -7,8 +7,10 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -17,6 +19,7 @@ import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -71,6 +74,12 @@ public class LocationServiceImpl implements LocationService {
         Department department = departmentRepository.findById(request.getDepartmentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + request.getDepartmentId()));
         
+        Event event = null;
+        if (request.getEventId() != null) {
+            event = eventRepository.findById(request.getEventId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Event not found with id: " + request.getEventId()));
+        }
+        
         Location location = Location.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -81,6 +90,7 @@ public class LocationServiceImpl implements LocationService {
                 .capacity(request.getCapacity())
                 .isActive(request.getIsActive() != null ? request.getIsActive() : true)
                 .department(department)
+                .event(event)
                 .createdBy(creator)
                 .updatedBy(creator)
                 .build();
@@ -127,17 +137,18 @@ public class LocationServiceImpl implements LocationService {
             location.setCapacity(request.getCapacity());
         }
         
+        if (request.getIsActive() != null) {
+            location.setIsActive(request.getIsActive());
+        }
+        
         if (request.getDepartmentId() != null) {
             Department department = departmentRepository.findById(request.getDepartmentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + request.getDepartmentId()));
             location.setDepartment(department);
         }
         
-        if (request.getIsActive() != null) {
-            location.setActive(request.getIsActive());
-        }
-        
         location.setUpdatedBy(updater);
+        
         location = locationRepository.save(location);
         
         return convertToDto(location);
@@ -147,13 +158,45 @@ public class LocationServiceImpl implements LocationService {
     public LocationResponse getLocation(Long id) {
         Location location = locationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + id));
+        
         return convertToDto(location);
     }
 
     @Override
-    public Page<LocationResponse> getAllLocations(Pageable pageable) {
-        return locationRepository.findAll(pageable)
-                .map(this::convertToDto);
+    public Page<LocationResponse> getAllLocations(Long departmentId, Long eventId, String section, Boolean isAssigned, Pageable pageable) {
+        // Build specifications based on filters
+        Specification<Location> spec = Specification.where(null);
+        
+        if (departmentId != null) {
+            spec = spec.and((root, query, cb) -> {
+                return cb.equal(root.get("department").get("id"), departmentId);
+            });
+        }
+        
+        if (eventId != null) {
+            spec = spec.and((root, query, cb) -> {
+                return cb.equal(root.get("event").get("id"), eventId);
+            });
+        }
+        
+        if (section != null && !section.isEmpty()) {
+            spec = spec.and((root, query, cb) -> {
+                return cb.equal(root.get("section"), section);
+            });
+        }
+        
+        if (isAssigned != null) {
+            spec = spec.and((root, query, cb) -> {
+                if (isAssigned) {
+                    return cb.isNotNull(root.get("project"));
+                } else {
+                    return cb.isNull(root.get("project"));
+                }
+            });
+        }
+        
+        Page<Location> locationsPage = locationRepository.findAll(spec, pageable);
+        return locationsPage.map(this::convertToDto);
     }
 
     @Override
@@ -182,31 +225,8 @@ public class LocationServiceImpl implements LocationService {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found with id: " + eventId));
         
-        // Find projects associated with this event
-        List<Project> projects = projectRepository.findByEvent(event);
-        
-        // Find locations associated with these projects
-        // This is a simplified approach; in a real implementation, you might need a more efficient query
-        Page<Location> locations = locationRepository.findAll(pageable);
-        
-        return locations
-                .map(location -> {
-                    LocationResponse response = convertToDto(location);
-                    
-                    // Check if any project in this event is assigned to this location
-                    for (Project project : projects) {
-                        if (project.getLocation() != null && project.getLocation().getId().equals(location.getId())) {
-                            response.setProjectId(project.getId());
-                            response.setProjectName(project.getTitle());
-                            if (project.getTeam() != null) {
-                                response.setProjectTeamName(project.getTeam().getName());
-                            }
-                            break;
-                        }
-                    }
-                    
-                    return response;
-                });
+        return locationRepository.findByEvent(event, pageable)
+                .map(this::convertToDto);
     }
 
     @Override
@@ -221,33 +241,12 @@ public class LocationServiceImpl implements LocationService {
         User updater = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
-        // Unassign the project from its current location if it has one
-        if (project.getLocation() != null && !project.getLocation().getId().equals(locationId)) {
-            List<Project> currentProjects = projectRepository.findByLocation(project.getLocation());
-            if (!currentProjects.isEmpty()) {
-                for (Project currentProject : currentProjects) {
-                    currentProject.setLocation(null);
-                    projectRepository.save(currentProject);
-                }
-            }
-        }
-        
-        // Assign the project to the new location
-        project.setLocation(location);
-        project.setUpdatedBy(updater);
-        projectRepository.save(project);
-        
+        location.setProject(project);
         location.setUpdatedBy(updater);
+        
         location = locationRepository.save(location);
         
-        LocationResponse response = convertToDto(location);
-        response.setProjectId(project.getId());
-        response.setProjectName(project.getTitle());
-        if (project.getTeam() != null) {
-            response.setProjectTeamName(project.getTeam().getName());
-        }
-        
-        return response;
+        return convertToDto(location);
     }
 
     @Override
@@ -259,17 +258,9 @@ public class LocationServiceImpl implements LocationService {
         User updater = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
-        // Find the projects assigned to this location
-        List<Project> projects = projectRepository.findByLocation(location);
-        if (!projects.isEmpty()) {
-            for (Project project : projects) {
-                project.setLocation(null);
-                project.setUpdatedBy(updater);
-                projectRepository.save(project);
-            }
-        }
-        
+        location.setProject(null);
         location.setUpdatedBy(updater);
+        
         location = locationRepository.save(location);
         
         return convertToDto(location);
@@ -277,15 +268,15 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public Map<String, Object> getLocationStatistics() {
-        Map<String, Object> statistics = new HashMap<>();
-        
-        // Total locations
         long totalLocations = locationRepository.count();
-        statistics.put("totalLocations", totalLocations);
+        long activeLocations = locationRepository.countByIsActiveTrue();
+        long assignedLocations = locationRepository.countByProjectIsNotNull();
         
-        // Active locations
-        long activeLocations = locationRepository.findByIsActiveTrue().size();
+        Map<String, Object> statistics = new HashMap<>();
+        statistics.put("totalLocations", totalLocations);
         statistics.put("activeLocations", activeLocations);
+        statistics.put("assignedLocations", assignedLocations);
+        statistics.put("availableLocations", activeLocations - assignedLocations);
         
         // Locations by department
         List<Department> departments = departmentRepository.findAll();
@@ -296,20 +287,7 @@ public class LocationServiceImpl implements LocationService {
             locationsByDepartment.put(department.getName(), count);
         }
         
-        statistics.put("locationsByDepartment", locationsByDepartment);
-        
-        // Locations by section
-        List<Location> locations = locationRepository.findAll();
-        Map<String, Long> locationsBySection = new HashMap<>();
-        
-        for (Location location : locations) {
-            if (location.getSection() != null) {
-                String section = location.getSection();
-                locationsBySection.put(section, locationsBySection.getOrDefault(section, 0L) + 1);
-            }
-        }
-        
-        statistics.put("locationsBySection", locationsBySection);
+        statistics.put("byDepartment", locationsByDepartment);
         
         return statistics;
     }
@@ -320,15 +298,6 @@ public class LocationServiceImpl implements LocationService {
         Location location = locationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Location not found with id: " + id));
         
-        // Unassign any projects assigned to this location
-        List<Project> projects = projectRepository.findByLocation(location);
-        if (!projects.isEmpty()) {
-            for (Project project : projects) {
-                project.setLocation(null);
-                projectRepository.save(project);
-            }
-        }
-        
         locationRepository.delete(location);
     }
 
@@ -337,10 +306,6 @@ public class LocationServiceImpl implements LocationService {
         if (location == null) {
             return null;
         }
-        
-        // Find any project assigned to this location
-        List<Project> projects = projectRepository.findByLocation(location);
-        Project project = projects.isEmpty() ? null : projects.get(0);
         
         return LocationResponse.builder()
                 .id(location.getId())
@@ -354,15 +319,14 @@ public class LocationServiceImpl implements LocationService {
                 .isActive(location.isActive())
                 .departmentId(location.getDepartment() != null ? location.getDepartment().getId() : null)
                 .departmentName(location.getDepartment() != null ? location.getDepartment().getName() : null)
-                .projectId(project != null ? project.getId() : null)
-                .projectName(project != null ? project.getTitle() : null)
-                .projectTeamName(project != null && project.getTeam() != null ? project.getTeam().getName() : null)
+                .projectId(location.getProject() != null ? location.getProject().getId() : null)
+                .projectName(location.getProject() != null ? location.getProject().getTitle() : null)
+                .eventId(location.getEvent() != null ? location.getEvent().getId() : null)
+                .eventName(location.getEvent() != null ? location.getEvent().getName() : null)
                 .createdById(location.getCreatedBy() != null ? location.getCreatedBy().getId() : null)
                 .createdByName(location.getCreatedBy() != null ? location.getCreatedBy().getName() : null)
                 .updatedById(location.getUpdatedBy() != null ? location.getUpdatedBy().getId() : null)
                 .updatedByName(location.getUpdatedBy() != null ? location.getUpdatedBy().getName() : null)
-                .createdAt(location.getCreatedAt())
-                .updatedAt(location.getUpdatedAt())
                 .build();
     }
 
@@ -370,75 +334,52 @@ public class LocationServiceImpl implements LocationService {
     public List<Location> findActiveLocationsByDepartment(Department department) {
         return locationRepository.findByDepartmentAndIsActiveTrue(department);
     }
-    
+
     @Override
     public List<Location> findActiveLocationsByEvent(Event event) {
-        // Find projects associated with this event
-        List<Project> projects = projectRepository.findByEvent(event);
-        
-        // Find locations associated with these projects
-        // This is a simplified approach; in a real implementation, you might need a more efficient query
-        List<Location> allActiveLocations = locationRepository.findByIsActiveTrue();
-        
-        return allActiveLocations.stream()
-                .filter(location -> {
-                    for (Project project : projects) {
-                        if (project.getLocation() != null && project.getLocation().getId().equals(location.getId())) {
-                            return true;
-                        }
-                    }
-                    return false;
-                })
-                .toList();
+        return locationRepository.findByEventAndIsActiveTrue(event);
     }
-    
+
     @Override
     @Transactional
     public LocationImportResult importLocationsFromCsv(MultipartFile file, Long userId) {
-        List<String> errors = new ArrayList<>();
-        int successCount = 0;
-        int errorCount = 0;
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
         
         User creator = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
         
+        List<Location> importedLocations = new ArrayList<>();
+        List<Map<String, String>> errors = new ArrayList<>();
+        
         try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+             CSVParser csvParser = CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .build()
+                     .parse(reader)) {
             
             for (CSVRecord record : csvParser) {
                 try {
+                    // Required fields
                     String name = record.get("name");
-                    String description = record.get("description");
                     String section = record.get("section");
                     String building = record.get("building");
                     String floor = record.get("floor");
                     String room = record.get("room");
-                    String capacityStr = record.get("capacity");
-                    String departmentIdStr = record.get("departmentId");
-                    String isActiveStr = record.get("isActive");
+                    int capacity = Integer.parseInt(record.get("capacity"));
+                    Long departmentId = Long.parseLong(record.get("departmentId"));
                     
-                    Integer capacity = null;
-                    if (capacityStr != null && !capacityStr.isEmpty()) {
-                        capacity = Integer.parseInt(capacityStr);
-                    }
+                    // Optional fields
+                    String description = record.isMapped("description") ? record.get("description") : null;
+                    boolean isActive = record.isMapped("isActive") ? Boolean.parseBoolean(record.get("isActive")) : true;
                     
-                    Long departmentId = null;
-                    if (departmentIdStr != null && !departmentIdStr.isEmpty()) {
-                        departmentId = Long.parseLong(departmentIdStr);
-                    }
+                    // Validate department
+                    Department department = departmentRepository.findById(departmentId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + departmentId));
                     
-                    Boolean isActive = null;
-                    if (isActiveStr != null && !isActiveStr.isEmpty()) {
-                        isActive = Boolean.parseBoolean(isActiveStr);
-                    }
-                    
-                    Department department = null;
-                    if (departmentId != null) {
-                        final Long deptId = departmentId; // Make a final copy for use in lambda
-                        department = departmentRepository.findById(deptId)
-                                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + deptId));
-                    }
-                    
+                    // Create location
                     Location location = Location.builder()
                             .name(name)
                             .description(description)
@@ -447,43 +388,52 @@ public class LocationServiceImpl implements LocationService {
                             .floor(floor)
                             .room(room)
                             .capacity(capacity)
-                            .isActive(isActive != null ? isActive : true)
+                            .isActive(isActive)
                             .department(department)
                             .createdBy(creator)
                             .updatedBy(creator)
                             .build();
                     
-                    locationRepository.save(location);
-                    successCount++;
+                    location = locationRepository.save(location);
+                    importedLocations.add(location);
+                    
                 } catch (Exception e) {
-                    log.error("Error importing location from CSV: {}", e.getMessage());
-                    errors.add("Row " + record.getRecordNumber() + ": " + e.getMessage());
-                    errorCount++;
+                    Map<String, String> error = new HashMap<>();
+                    error.put("line", String.valueOf(record.getRecordNumber()));
+                    error.put("error", e.getMessage());
+                    errors.add(error);
+                    log.error("Error importing location at line {}: {}", record.getRecordNumber(), e.getMessage());
                 }
             }
+            
         } catch (IOException e) {
-            log.error("Error reading CSV file: {}", e.getMessage());
-            errors.add("Error reading CSV file: " + e.getMessage());
-            errorCount++;
+            throw new RuntimeException("Failed to parse CSV file: " + e.getMessage(), e);
         }
         
         return LocationImportResult.builder()
-                .totalProcessed(successCount + errorCount)
-                .successCount(successCount)
-                .errorCount(errorCount)
+                .successCount(importedLocations.size())
+                .errorCount(errors.size())
+                .totalProcessed(importedLocations.size() + errors.size())
                 .errors(errors)
                 .build();
     }
-    
+
     @Override
     public byte[] exportLocationsToCsv() {
         List<Location> locations = locationRepository.findAll();
         
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
-             OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
-             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(
-                     "id", "name", "description", "section", "building", "floor", "room", 
-                     "capacity", "departmentId", "departmentName", "isActive"))) {
+        String[] headers = {
+                "id", "name", "description", "section", "building", "floor", "room", 
+                "capacity", "departmentId", "departmentName", "isActive"
+        };
+        
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        
+        try (OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
+             CSVPrinter csvPrinter = CSVFormat.DEFAULT.builder()
+                     .setHeader(headers)
+                     .build()
+                     .print(writer)) {
             
             for (Location location : locations) {
                 csvPrinter.printRecord(
@@ -503,27 +453,80 @@ public class LocationServiceImpl implements LocationService {
             
             csvPrinter.flush();
             return out.toByteArray();
+            
         } catch (IOException e) {
-            log.error("Error exporting locations to CSV: {}", e.getMessage());
-            throw new RuntimeException("Error exporting locations to CSV", e);
+            throw new RuntimeException("Failed to export locations to CSV: " + e.getMessage(), e);
         }
     }
-    
+
     @Override
     @Transactional
     public List<LocationResponse> createLocationBatch(CreateLocationBatchRequest request, Long userId) {
-        List<LocationResponse> responses = new ArrayList<>();
+        User creator = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        
+        List<Location> createdLocations = new ArrayList<>();
         
         for (CreateLocationRequest locationRequest : request.getLocations()) {
-            try {
-                LocationResponse response = createLocation(locationRequest, userId);
-                responses.add(response);
-            } catch (Exception e) {
-                log.error("Error creating location in batch: {}", e.getMessage());
-                // Continue with the next location even if one fails
-            }
+            Department department = departmentRepository.findById(locationRequest.getDepartmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + locationRequest.getDepartmentId()));
+            
+            Location location = Location.builder()
+                    .name(locationRequest.getName())
+                    .description(locationRequest.getDescription())
+                    .section(locationRequest.getSection())
+                    .building(locationRequest.getBuilding())
+                    .floor(locationRequest.getFloor())
+                    .room(locationRequest.getRoom())
+                    .capacity(locationRequest.getCapacity())
+                    .isActive(locationRequest.getIsActive() != null ? locationRequest.getIsActive() : true)
+                    .department(department)
+                    .createdBy(creator)
+                    .updatedBy(creator)
+                    .build();
+            
+            location = locationRepository.save(location);
+            createdLocations.add(location);
         }
         
-        return responses;
+        return createdLocations.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    public Map<String, Object> getLocationsByEventGroupedBySection(Long eventId) {
+        // Check if event exists
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found with id: " + eventId));
+        
+        // Get all locations for the event
+        List<Location> locations = locationRepository.findByEventAndIsActiveTrue(event);
+        
+        // Group locations by section
+        Map<String, List<Location>> sectionMap = locations.stream()
+                .collect(Collectors.groupingBy(Location::getSection));
+        
+        // Convert map to list of section objects with locations
+        List<Map<String, Object>> sectionsList = new ArrayList<>();
+        
+        sectionMap.forEach((sectionName, sectionLocations) -> {
+            Map<String, Object> sectionObj = new LinkedHashMap<>();
+            sectionObj.put("section", sectionName);
+            sectionObj.put("locations", sectionLocations.stream()
+                    .map(this::convertToDto)
+                    .collect(Collectors.toList()));
+            sectionsList.add(sectionObj);
+        });
+        
+        // Create result map with sections and statistics
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sections", sectionsList);
+        result.put("totalLocations", locations.size());
+        result.put("assignedLocations", locations.stream()
+                .filter(loc -> loc.getProject() != null)
+                .count());
+        
+        return result;
     }
 }

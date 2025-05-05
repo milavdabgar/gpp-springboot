@@ -5,16 +5,18 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import in.gppalanpur.portal.entity.Department;
+import in.gppalanpur.portal.entity.Event;
 import in.gppalanpur.portal.entity.Location;
 
 /**
  * Repository for Location entity operations.
  */
 @Repository
-public interface LocationRepository extends JpaRepository<Location, Long> {
+public interface LocationRepository extends JpaRepository<Location, Long>, JpaSpecificationExecutor<Location> {
     
     /**
      * Find locations by department.
@@ -131,4 +133,52 @@ public interface LocationRepository extends JpaRepository<Location, Long> {
      * @return Number of active locations in the department
      */
     long countByDepartmentAndIsActiveTrue(Department department);
+    
+    /**
+     * Count locations with active status.
+     * 
+     * @return Number of active locations
+     */
+    long countByIsActiveTrue();
+    
+    /**
+     * Count locations with assigned projects.
+     * 
+     * @return Number of locations with assigned projects
+     */
+    long countByProjectIsNotNull();
+    
+    /**
+     * Find locations by event.
+     * 
+     * @param event Event to filter by
+     * @return List of locations for the event
+     */
+    List<Location> findByEvent(Event event);
+    
+    /**
+     * Find locations by event with pagination.
+     * 
+     * @param event Event to filter by
+     * @param pageable Pagination parameters
+     * @return Page of locations for the event
+     */
+    Page<Location> findByEvent(Event event, Pageable pageable);
+    
+    /**
+     * Find active locations by event.
+     * 
+     * @param event Event to filter by
+     * @return List of active locations for the event
+     */
+    List<Location> findByEventAndIsActiveTrue(Event event);
+    
+    /**
+     * Find active locations by event with pagination.
+     * 
+     * @param event Event to filter by
+     * @param pageable Pagination parameters
+     * @return Page of active locations for the event
+     */
+    Page<Location> findByEventAndIsActiveTrue(Event event, Pageable pageable);
 }

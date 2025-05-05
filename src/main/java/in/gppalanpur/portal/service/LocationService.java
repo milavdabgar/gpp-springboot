@@ -49,12 +49,16 @@ public interface LocationService {
     LocationResponse getLocation(Long id);
     
     /**
-     * Get all locations with pagination
+     * Get all locations with pagination and filtering
      * 
+     * @param departmentId optional department ID filter
+     * @param eventId optional event ID filter
+     * @param section optional section filter
+     * @param isAssigned optional assignment status filter
      * @param pageable pagination information
      * @return paginated list of location responses
      */
-    Page<LocationResponse> getAllLocations(Pageable pageable);
+    Page<LocationResponse> getAllLocations(Long departmentId, Long eventId, String section, Boolean isAssigned, Pageable pageable);
     
     /**
      * Get active locations with pagination
@@ -172,4 +176,12 @@ public interface LocationService {
      * @return list of created location responses
      */
     List<LocationResponse> createLocationBatch(CreateLocationBatchRequest request, Long userId);
+    
+    /**
+     * Get locations by event grouped by section
+     * 
+     * @param eventId the event ID
+     * @return map containing sections with their locations and statistics
+     */
+    Map<String, Object> getLocationsByEventGroupedBySection(Long eventId);
 }
