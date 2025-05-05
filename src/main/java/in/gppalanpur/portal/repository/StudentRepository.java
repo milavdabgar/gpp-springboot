@@ -36,21 +36,40 @@ public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpec
     @Query("SELECT DISTINCT s.batch FROM Student s ORDER BY s.batch DESC")
     List<String> findDistinctBatches();
 
-    @Query("SELECT s FROM Student s WHERE s.department = :department AND s.semesterStatus.sem1 = :status")
-    List<Student> findBySemester1Status(@Param("department") Department department, @Param("status") SemesterStatus.Status status);
+    // Custom methods to find students by semester status using Java filtering instead of JPQL
+    default List<Student> findBySemester1Status(Department department, SemesterStatus.Status status) {
+        return findByDepartment(department).stream()
+                .filter(student -> student.getSemesterStatus() != null && student.getSemesterStatus().getSem1() == status)
+                .toList();
+    }
     
-    @Query("SELECT s FROM Student s WHERE s.department = :department AND s.semesterStatus.sem2 = :status")
-    List<Student> findBySemester2Status(@Param("department") Department department, @Param("status") SemesterStatus.Status status);
+    default List<Student> findBySemester2Status(Department department, SemesterStatus.Status status) {
+        return findByDepartment(department).stream()
+                .filter(student -> student.getSemesterStatus() != null && student.getSemesterStatus().getSem2() == status)
+                .toList();
+    }
     
-    @Query("SELECT s FROM Student s WHERE s.department = :department AND s.semesterStatus.sem3 = :status")
-    List<Student> findBySemester3Status(@Param("department") Department department, @Param("status") SemesterStatus.Status status);
+    default List<Student> findBySemester3Status(Department department, SemesterStatus.Status status) {
+        return findByDepartment(department).stream()
+                .filter(student -> student.getSemesterStatus() != null && student.getSemesterStatus().getSem3() == status)
+                .toList();
+    }
     
-    @Query("SELECT s FROM Student s WHERE s.department = :department AND s.semesterStatus.sem4 = :status")
-    List<Student> findBySemester4Status(@Param("department") Department department, @Param("status") SemesterStatus.Status status);
+    default List<Student> findBySemester4Status(Department department, SemesterStatus.Status status) {
+        return findByDepartment(department).stream()
+                .filter(student -> student.getSemesterStatus() != null && student.getSemesterStatus().getSem4() == status)
+                .toList();
+    }
     
-    @Query("SELECT s FROM Student s WHERE s.department = :department AND s.semesterStatus.sem5 = :status")
-    List<Student> findBySemester5Status(@Param("department") Department department, @Param("status") SemesterStatus.Status status);
+    default List<Student> findBySemester5Status(Department department, SemesterStatus.Status status) {
+        return findByDepartment(department).stream()
+                .filter(student -> student.getSemesterStatus() != null && student.getSemesterStatus().getSem5() == status)
+                .toList();
+    }
     
-    @Query("SELECT s FROM Student s WHERE s.department = :department AND s.semesterStatus.sem6 = :status")
-    List<Student> findBySemester6Status(@Param("department") Department department, @Param("status") SemesterStatus.Status status);
+    default List<Student> findBySemester6Status(Department department, SemesterStatus.Status status) {
+        return findByDepartment(department).stream()
+                .filter(student -> student.getSemesterStatus() != null && student.getSemesterStatus().getSem6() == status)
+                .toList();
+    }
 }

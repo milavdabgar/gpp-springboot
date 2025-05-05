@@ -1,4 +1,4 @@
-package in.gppalanpur.portal.security;
+package in.gppalanpur.portal.service.impl;
 
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import in.gppalanpur.portal.entity.User;
 import in.gppalanpur.portal.repository.UserRepository;
+import in.gppalanpur.portal.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 
 @Service

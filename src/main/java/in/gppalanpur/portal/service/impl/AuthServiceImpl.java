@@ -84,14 +84,17 @@ public class AuthServiceImpl implements AuthService {
         
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         
-        return JwtResponse.builder()
-                .token(jwt)
+        // Create user DTO with camelCase properties as expected by React frontend
+        JwtResponse.UserDto userDto = JwtResponse.UserDto.builder()
                 .id(userDetails.getId())
                 .name(userDetails.getName())
                 .email(userDetails.getUsername())
                 .roles(userDetails.getRoles())
                 .selectedRole(userDetails.getSelectedRole())
                 .build();
+        
+        // Return response in the format expected by React frontend
+        return JwtResponse.createResponse(jwt, userDto);
     }
 
     @Override
@@ -118,14 +121,17 @@ public class AuthServiceImpl implements AuthService {
         
         String jwt = jwtUtils.generateToken(userDetails);
         
-        return JwtResponse.builder()
-                .token(jwt)
+        // Create user DTO with camelCase properties as expected by React frontend
+        JwtResponse.UserDto userDto = JwtResponse.UserDto.builder()
                 .id(userDetails.getId())
                 .name(userDetails.getName())
                 .email(userDetails.getUsername())
                 .roles(userDetails.getRoles())
                 .selectedRole(userDetails.getSelectedRole())
                 .build();
+        
+        // Return response in the format expected by React frontend
+        return JwtResponse.createResponse(jwt, userDto);
     }
 
     @Override
@@ -147,13 +153,16 @@ public class AuthServiceImpl implements AuthService {
         UserDetailsImpl userDetails = UserDetailsImpl.build(user);
         String jwt = jwtUtils.generateToken(userDetails);
         
-        return JwtResponse.builder()
-                .token(jwt)
+        // Create user DTO with camelCase properties as expected by React frontend
+        JwtResponse.UserDto userDto = JwtResponse.UserDto.builder()
                 .id(userDetails.getId())
                 .name(userDetails.getName())
                 .email(userDetails.getUsername())
                 .roles(userDetails.getRoles())
                 .selectedRole(userDetails.getSelectedRole())
                 .build();
+        
+        // Return response in the format expected by React frontend
+        return JwtResponse.createResponse(jwt, userDto);
     }
 }

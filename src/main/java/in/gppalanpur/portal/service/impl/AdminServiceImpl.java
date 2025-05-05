@@ -16,6 +16,7 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Direction;
@@ -139,7 +140,9 @@ public class AdminServiceImpl implements AdminService {
         Sort sort = Sort.by(direction, sortBy);
         
         // Execute query
-        Page<User> users = userRepository.findAll(spec, pageable.withSort(sort));
+        // Create a new PageRequest with the sort parameter
+        PageRequest pageRequest = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+        Page<User> users = userRepository.findAll(spec, pageRequest);
         
         // Map to response
         return users.map(this::mapToUserResponse);
@@ -228,7 +231,8 @@ public class AdminServiceImpl implements AdminService {
             throw new BadRequestException("Please upload a CSV file");
         }
         
-        if (!file.getOriginalFilename().endsWith(".csv")) {
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.endsWith(".csv")) {
             throw new BadRequestException("Please upload a valid CSV file");
         }
         

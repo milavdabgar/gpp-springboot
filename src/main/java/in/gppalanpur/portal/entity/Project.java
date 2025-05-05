@@ -6,6 +6,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import jakarta.persistence.AttributeOverride;
+import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -81,9 +83,23 @@ public class Project {
     private ProjectLocation location;
     
     @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name = "completed", column = @Column(name = "dept_evaluation_completed")),
+        @AttributeOverride(name = "score", column = @Column(name = "dept_evaluation_score")),
+        @AttributeOverride(name = "feedback", column = @Column(name = "dept_evaluation_feedback")),
+        @AttributeOverride(name = "evaluatedAt", column = @Column(name = "dept_evaluation_evaluated_at")),
+        @AttributeOverride(name = "juryId", column = @Column(name = "dept_jury_id"))
+    })
     private ProjectEvaluation deptEvaluation;
     
     @Embedded
+    @AttributeOverrides({
+        @AttributeOverride(name = "completed", column = @Column(name = "central_evaluation_completed")),
+        @AttributeOverride(name = "score", column = @Column(name = "central_evaluation_score")),
+        @AttributeOverride(name = "feedback", column = @Column(name = "central_evaluation_feedback")),
+        @AttributeOverride(name = "evaluatedAt", column = @Column(name = "central_evaluation_evaluated_at")),
+        @AttributeOverride(name = "juryId", column = @Column(name = "central_jury_id"))
+    })
     private ProjectEvaluation centralEvaluation;
     
     @ManyToOne(fetch = FetchType.LAZY)

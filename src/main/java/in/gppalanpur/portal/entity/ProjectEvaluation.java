@@ -4,9 +4,6 @@ import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,9 +24,9 @@ public class ProjectEvaluation {
     @Column(columnDefinition = "text")
     private String feedback;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "jury_id")
-    private User jury;
+    // Instead of using a ManyToOne relationship, we'll store just the ID
+    // This avoids the complex mapping issues with embedded entities
+    private Long juryId;
     
     private LocalDateTime evaluatedAt;
 }

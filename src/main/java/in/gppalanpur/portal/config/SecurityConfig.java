@@ -20,7 +20,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import in.gppalanpur.portal.security.JwtAuthenticationEntryPoint;
 import in.gppalanpur.portal.security.JwtAuthenticationFilter;
-import in.gppalanpur.portal.security.UserDetailsServiceImpl;
+import in.gppalanpur.portal.service.impl.UserDetailsServiceImpl;
 
 import lombok.RequiredArgsConstructor;
 
@@ -66,6 +66,7 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/health").permitAll()
+                .requestMatchers("/").permitAll() // Allow public access to the home endpoint
                 .anyRequest().authenticated()
             );
 

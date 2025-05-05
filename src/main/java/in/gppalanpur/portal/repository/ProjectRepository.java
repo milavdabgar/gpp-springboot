@@ -41,10 +41,10 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     @Query("SELECT p FROM Project p WHERE p.centralEvaluation.completed = :completed")
     List<Project> findByCentralEvaluationCompleted(@Param("completed") boolean completed);
     
-    @Query("SELECT p FROM Project p WHERE p.deptEvaluation.jury.id = :juryId")
+    @Query("SELECT p FROM Project p WHERE p.deptEvaluation.juryId = :juryId")
     List<Project> findByDeptJury(@Param("juryId") Long juryId);
     
-    @Query("SELECT p FROM Project p WHERE p.centralEvaluation.jury.id = :juryId")
+    @Query("SELECT p FROM Project p WHERE p.centralEvaluation.juryId = :juryId")
     List<Project> findByCentralJury(@Param("juryId") Long juryId);
     
     Page<Project> findByEventAndDepartment(ProjectEvent event, Department department, Pageable pageable);
