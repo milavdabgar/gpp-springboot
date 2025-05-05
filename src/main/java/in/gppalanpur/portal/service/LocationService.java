@@ -5,8 +5,11 @@ import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
+import in.gppalanpur.portal.dto.location.CreateLocationBatchRequest;
 import in.gppalanpur.portal.dto.location.CreateLocationRequest;
+import in.gppalanpur.portal.dto.location.LocationImportResult;
 import in.gppalanpur.portal.dto.location.LocationResponse;
 import in.gppalanpur.portal.dto.location.UpdateLocationRequest;
 import in.gppalanpur.portal.entity.Department;
@@ -144,4 +147,29 @@ public interface LocationService {
      * @return list of active locations
      */
     List<Location> findActiveLocationsByEvent(Event event);
+    
+    /**
+     * Import locations from a CSV file
+     * 
+     * @param file the CSV file
+     * @param userId the ID of the user importing the locations
+     * @return the import result
+     */
+    LocationImportResult importLocationsFromCsv(MultipartFile file, Long userId);
+    
+    /**
+     * Export locations to a CSV file
+     * 
+     * @return the CSV file content as byte array
+     */
+    byte[] exportLocationsToCsv();
+    
+    /**
+     * Create multiple locations in a batch
+     * 
+     * @param request the batch creation request
+     * @param userId the ID of the user creating the locations
+     * @return list of created location responses
+     */
+    List<LocationResponse> createLocationBatch(CreateLocationBatchRequest request, Long userId);
 }

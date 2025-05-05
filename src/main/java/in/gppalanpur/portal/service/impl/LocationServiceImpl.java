@@ -1,16 +1,29 @@
 package in.gppalanpur.portal.service.impl;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.csv.CSVRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import in.gppalanpur.portal.dto.location.CreateLocationBatchRequest;
 import in.gppalanpur.portal.dto.location.CreateLocationRequest;
+import in.gppalanpur.portal.dto.location.LocationImportResult;
 import in.gppalanpur.portal.dto.location.LocationResponse;
 import in.gppalanpur.portal.dto.location.UpdateLocationRequest;
 import in.gppalanpur.portal.entity.Department;
@@ -25,11 +38,13 @@ import in.gppalanpur.portal.repository.LocationRepository;
 import in.gppalanpur.portal.repository.ProjectRepository;
 import in.gppalanpur.portal.repository.UserRepository;
 import in.gppalanpur.portal.service.LocationService;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of LocationService interface.
  */
 @Service
+@Slf4j
 public class LocationServiceImpl implements LocationService {
 
     @Autowired
@@ -355,7 +370,7 @@ public class LocationServiceImpl implements LocationService {
     public List<Location> findActiveLocationsByDepartment(Department department) {
         return locationRepository.findByDepartmentAndIsActiveTrue(department);
     }
-
+    
     @Override
     public List<Location> findActiveLocationsByEvent(Event event) {
         // Find projects associated with this event
@@ -375,5 +390,140 @@ public class LocationServiceImpl implements LocationService {
                     return false;
                 })
                 .toList();
+    }
+    
+    @Override
+    @Transactional
+    public LocationImportResult importLocationsFromCsv(MultipartFile file, Long userId) {
+        List<String> errors = new ArrayList<>();
+        int successCount = 0;
+        int errorCount = 0;
+        
+        User creator = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+        
+        try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
+            
+            for (CSVRecord record : csvParser) {
+                try {
+                    String name = record.get("name");
+                    String description = record.get("description");
+                    String section = record.get("section");
+                    String building = record.get("building");
+                    String floor = record.get("floor");
+                    String room = record.get("room");
+                    String capacityStr = record.get("capacity");
+                    String departmentIdStr = record.get("departmentId");
+                    String isActiveStr = record.get("isActive");
+                    
+                    Integer capacity = null;
+                    if (capacityStr != null && !capacityStr.isEmpty()) {
+                        capacity = Integer.parseInt(capacityStr);
+                    }
+                    
+                    Long departmentId = null;
+                    if (departmentIdStr != null && !departmentIdStr.isEmpty()) {
+                        departmentId = Long.parseLong(departmentIdStr);
+                    }
+                    
+                    Boolean isActive = null;
+                    if (isActiveStr != null && !isActiveStr.isEmpty()) {
+                        isActive = Boolean.parseBoolean(isActiveStr);
+                    }
+                    
+                    Department department = null;
+                    if (departmentId != null) {
+                        final Long deptId = departmentId; // Make a final copy for use in lambda
+                        department = departmentRepository.findById(deptId)
+                                .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + deptId));
+                    }
+                    
+                    Location location = Location.builder()
+                            .name(name)
+                            .description(description)
+                            .section(section)
+                            .building(building)
+                            .floor(floor)
+                            .room(room)
+                            .capacity(capacity)
+                            .isActive(isActive != null ? isActive : true)
+                            .department(department)
+                            .createdBy(creator)
+                            .updatedBy(creator)
+                            .build();
+                    
+                    locationRepository.save(location);
+                    successCount++;
+                } catch (Exception e) {
+                    log.error("Error importing location from CSV: {}", e.getMessage());
+                    errors.add("Row " + record.getRecordNumber() + ": " + e.getMessage());
+                    errorCount++;
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error reading CSV file: {}", e.getMessage());
+            errors.add("Error reading CSV file: " + e.getMessage());
+            errorCount++;
+        }
+        
+        return LocationImportResult.builder()
+                .totalProcessed(successCount + errorCount)
+                .successCount(successCount)
+                .errorCount(errorCount)
+                .errors(errors)
+                .build();
+    }
+    
+    @Override
+    public byte[] exportLocationsToCsv() {
+        List<Location> locations = locationRepository.findAll();
+        
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+             OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
+             CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader(
+                     "id", "name", "description", "section", "building", "floor", "room", 
+                     "capacity", "departmentId", "departmentName", "isActive"))) {
+            
+            for (Location location : locations) {
+                csvPrinter.printRecord(
+                        location.getId(),
+                        location.getName(),
+                        location.getDescription(),
+                        location.getSection(),
+                        location.getBuilding(),
+                        location.getFloor(),
+                        location.getRoom(),
+                        location.getCapacity(),
+                        location.getDepartment() != null ? location.getDepartment().getId() : null,
+                        location.getDepartment() != null ? location.getDepartment().getName() : null,
+                        location.isActive()
+                );
+            }
+            
+            csvPrinter.flush();
+            return out.toByteArray();
+        } catch (IOException e) {
+            log.error("Error exporting locations to CSV: {}", e.getMessage());
+            throw new RuntimeException("Error exporting locations to CSV", e);
+        }
+    }
+    
+    @Override
+    @Transactional
+    public List<LocationResponse> createLocationBatch(CreateLocationBatchRequest request, Long userId) {
+        List<LocationResponse> responses = new ArrayList<>();
+        
+        for (CreateLocationRequest locationRequest : request.getLocations()) {
+            try {
+                LocationResponse response = createLocation(locationRequest, userId);
+                responses.add(response);
+            } catch (Exception e) {
+                log.error("Error creating location in batch: {}", e.getMessage());
+                // Continue with the next location even if one fails
+            }
+        }
+        
+        return responses;
     }
 }
