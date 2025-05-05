@@ -1,7 +1,10 @@
 package in.gppalanpur.portal.controller;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -157,6 +160,34 @@ public class AdminController {
                 .status("success")
                 .message("Dashboard statistics retrieved successfully")
                 .data(Map.of("stats", stats))
+                .build();
+        
+        return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/roles")
+    @Operation(summary = "Get all available roles")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getAllRoles() {
+        List<String> roleNames = adminService.getAllRoles();
+        
+        // Transform the roles into a list of maps with all properties expected by the React frontend
+        List<Map<String, Object>> formattedRoles = roleNames.stream()
+                .map(role -> {
+                    Map<String, Object> roleMap = new HashMap<>();
+                    roleMap.put("_id", role); // Use role name as ID
+                    roleMap.put("name", role);
+                    roleMap.put("description", "Role for " + role + " users");
+                    roleMap.put("permissions", new ArrayList<String>()); // Empty permissions array
+                    roleMap.put("createdAt", new java.util.Date().toString());
+                    roleMap.put("updatedAt", new java.util.Date().toString());
+                    return roleMap;
+                })
+                .collect(Collectors.toList());
+        
+        ApiResponse<List<Map<String, Object>>> response = ApiResponse.<List<Map<String, Object>>>builder()
+                .status("success")
+                .message("Roles retrieved successfully")
+                .data(Map.of("roles", formattedRoles))
                 .build();
         
         return ResponseEntity.ok(response);
