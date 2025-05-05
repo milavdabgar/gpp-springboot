@@ -8,7 +8,9 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.commons.csv.CSVFormat;
@@ -27,10 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import in.gppalanpur.portal.dto.admin.CreateUserRequest;
-import in.gppalanpur.portal.dto.admin.RoleAssignmentRequest;
+
 import in.gppalanpur.portal.dto.admin.UpdateUserRequest;
 import in.gppalanpur.portal.dto.admin.UserCsvImportResult;
 import in.gppalanpur.portal.dto.admin.UserResponse;
+import in.gppalanpur.portal.dto.admin.UserRoleRequest;
 import in.gppalanpur.portal.dto.admin.UserSearchCriteria;
 import in.gppalanpur.portal.entity.Department;
 import in.gppalanpur.portal.entity.User;
@@ -61,7 +64,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public UserResponse createUser(CreateUserRequest request) {
+    public UserResponse createUser(CreateUserRequest request, Long creatorId) {
         // Validate email uniqueness
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email is already in use");
@@ -149,7 +152,13 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public UserResponse getUserById(Long id) {
+    public Page<UserResponse> getAllUsers(Pageable pageable) {
+        Page<User> users = userRepository.findAll(pageable);
+        return users.map(this::mapToUserResponse);
+    }
+
+    @Override
+    public UserResponse getUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
@@ -158,7 +167,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public UserResponse updateUser(Long id, UpdateUserRequest request) {
+    public UserResponse updateUser(Long id, UpdateUserRequest request, Long updaterId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
@@ -193,7 +202,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public void deleteUser(Long id) {
+    public void deleteUser(Long id, Long deleterId) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
@@ -202,9 +211,12 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     @Transactional
-    public UserResponse assignRoles(Long userId, RoleAssignmentRequest request) {
+    public UserResponse updateUserRoles(Long userId, UserRoleRequest request, Long updaterId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        
+        // Log who is updating the roles
+        log.info("User roles being updated by user ID: {}", updaterId);
         
         List<String> roles = request.getRoles();
         
@@ -369,7 +381,40 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public List<String> getAllRoles() {
-        return AVAILABLE_ROLES;
+        return new ArrayList<>(AVAILABLE_ROLES);
+    }
+    
+    @Override
+    public Map<String, Object> getDashboardStats() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // Count users by role
+        Map<String, Long> usersByRole = new HashMap<>();
+        for (String role : AVAILABLE_ROLES) {
+            // Use a custom query or count manually since countByRolesContaining might not be available
+            long count = userRepository.findAll().stream()
+                .filter(user -> user.getRoles().contains(role))
+                .count();
+            usersByRole.put(role, count);
+        }
+        stats.put("usersByRole", usersByRole);
+        
+        // Total users
+        stats.put("totalUsers", userRepository.count());
+        
+        // Users by department
+        List<Department> departments = departmentRepository.findAll();
+        Map<String, Long> usersByDepartment = new HashMap<>();
+        for (Department dept : departments) {
+            // Use a custom query or count manually since countByDepartment might not be available
+            long count = userRepository.findAll().stream()
+                .filter(user -> user.getDepartment() != null && user.getDepartment().getId().equals(dept.getId()))
+                .count();
+            usersByDepartment.put(dept.getName(), count);
+        }
+        stats.put("usersByDepartment", usersByDepartment);
+        
+        return stats;
     }
     
     private void validateRoles(List<String> roles) {
