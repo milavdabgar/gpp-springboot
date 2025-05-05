@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import in.gppalanpur.portal.entity.Department;
 import in.gppalanpur.portal.entity.Event;
+import in.gppalanpur.portal.entity.Location;
 import in.gppalanpur.portal.entity.Project;
 import in.gppalanpur.portal.entity.Project.Status;
 import in.gppalanpur.portal.entity.Team;
@@ -29,6 +30,9 @@ public interface ProjectRepository extends JpaRepository<Project, Long>, JpaSpec
     
     List<Project> findByEvent(Event event);
     Page<Project> findByEvent(Event event, Pageable pageable);
+    
+    List<Project> findByLocation(Location location);
+    Page<Project> findByLocation(Location location, Pageable pageable);
     
     List<Project> findByCategory(String category);
     
