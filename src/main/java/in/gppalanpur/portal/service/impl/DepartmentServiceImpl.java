@@ -173,10 +173,30 @@ public class DepartmentServiceImpl implements DepartmentService {
     @Override
     @Transactional
     public void deleteDepartment(Long id) {
+        log.info("Finding department with ID: {}", id);
         Department department = departmentRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Department not found"));
+                .orElseThrow(() -> {
+                    log.error("Department not found with ID: {}", id);
+                    return new ResourceNotFoundException("Department not found with ID: " + id);
+                });
         
-        departmentRepository.delete(department);
+        log.info("Found department: {}, proceeding with deletion", department.getName());
+        
+        // Check if department has associated users
+        List<User> usersInDepartment = userRepository.findByDepartment(department);
+        if (!usersInDepartment.isEmpty()) {
+            log.warn("Cannot delete department {} (ID: {}) because it has {} associated users", 
+                    department.getName(), id, usersInDepartment.size());
+            throw new BadRequestException("Cannot delete department because it has associated users. Please reassign or remove these users first.");
+        }
+        
+        try {
+            departmentRepository.delete(department);
+            log.info("Successfully deleted department: {} (ID: {})", department.getName(), id);
+        } catch (Exception e) {
+            log.error("Error deleting department: {} (ID: {}). Error: {}", department.getName(), id, e.getMessage());
+            throw e;
+        }
     }
 
     @Override
@@ -328,6 +348,7 @@ public class DepartmentServiceImpl implements DepartmentService {
             User hod = department.getHodId();
             hodDetails = DepartmentResponse.HodDetails.builder()
                     .id(hod.getId())
+                    ._id(hod.getId().toString()) // Set _id field to match React frontend expectations
                     .name(hod.getName())
                     .email(hod.getEmail())
                     .build();
@@ -335,6 +356,7 @@ public class DepartmentServiceImpl implements DepartmentService {
         
         return DepartmentResponse.builder()
                 .id(department.getId())
+                ._id(department.getId().toString()) // Set _id field to match React frontend expectations
                 .name(department.getName())
                 .code(department.getCode())
                 .description(department.getDescription())

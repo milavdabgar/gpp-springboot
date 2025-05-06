@@ -27,7 +27,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/departments")
 @PreAuthorize("hasAnyRole('ROLE_admin', 'ROLE_principal')")
@@ -39,65 +41,146 @@ public class DepartmentController {
     
     @GetMapping
     @Operation(summary = "Get all departments")
-    public ResponseEntity<List<DepartmentResponse>> getAllDepartments() {
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<List<DepartmentResponse>>> getAllDepartments() {
         List<DepartmentResponse> departments = departmentService.getAllDepartments();
-        return ResponseEntity.ok(departments);
+        
+        in.gppalanpur.portal.dto.ApiResponse<List<DepartmentResponse>> response = in.gppalanpur.portal.dto.ApiResponse.<List<DepartmentResponse>>builder()
+                .status("success")
+                .message("Departments retrieved successfully")
+                .data(Map.of("departments", departments))
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
     
     @GetMapping("/{id}")
     @Operation(summary = "Get department by ID")
-    public ResponseEntity<DepartmentResponse> getDepartment(@PathVariable Long id) {
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<DepartmentResponse>> getDepartment(@PathVariable Long id) {
         DepartmentResponse department = departmentService.getDepartment(id);
-        return ResponseEntity.ok(department);
+        
+        in.gppalanpur.portal.dto.ApiResponse<DepartmentResponse> response = in.gppalanpur.portal.dto.ApiResponse.<DepartmentResponse>builder()
+                .status("success")
+                .message("Department retrieved successfully")
+                .data(Map.of("department", department))
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
     
     @PostMapping
     @Operation(summary = "Create a new department")
-    public ResponseEntity<DepartmentResponse> createDepartment(@Valid @RequestBody CreateDepartmentRequest request) {
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<DepartmentResponse>> createDepartment(@Valid @RequestBody CreateDepartmentRequest request) {
         DepartmentResponse department = departmentService.createDepartment(request);
-        return new ResponseEntity<>(department, HttpStatus.CREATED);
+        
+        in.gppalanpur.portal.dto.ApiResponse<DepartmentResponse> response = in.gppalanpur.portal.dto.ApiResponse.<DepartmentResponse>builder()
+                .status("success")
+                .message("Department created successfully")
+                .data(Map.of("department", department))
+                .build();
+        
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
     
     @PutMapping("/{id}")
     @Operation(summary = "Update a department")
-    public ResponseEntity<DepartmentResponse> updateDepartment(
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<DepartmentResponse>> updateDepartment(
             @PathVariable Long id, 
             @Valid @RequestBody UpdateDepartmentRequest request) {
         
         DepartmentResponse department = departmentService.updateDepartment(id, request);
-        return ResponseEntity.ok(department);
+        
+        in.gppalanpur.portal.dto.ApiResponse<DepartmentResponse> response = in.gppalanpur.portal.dto.ApiResponse.<DepartmentResponse>builder()
+                .status("success")
+                .message("Department updated successfully")
+                .data(Map.of("department", department))
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
     
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a department")
-    public ResponseEntity<Void> deleteDepartment(@PathVariable Long id) {
-        departmentService.deleteDepartment(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<Void>> deleteDepartment(@PathVariable(required = false) String id) {
+        try {
+            if (id == null || id.equals("undefined") || id.equals("null")) {
+                log.error("Attempt to delete department with invalid ID: {}", id);
+                return ResponseEntity.ok(
+                    in.gppalanpur.portal.dto.ApiResponse.<Void>builder()
+                        .status("error")
+                        .message("Invalid department ID")
+                        .build()
+                );
+            }
+            
+            log.info("Attempting to delete department with ID: {}", id);
+            Long departmentId = Long.parseLong(id);
+            departmentService.deleteDepartment(departmentId);
+            log.info("Successfully deleted department with ID: {}", id);
+            
+            in.gppalanpur.portal.dto.ApiResponse<Void> response = in.gppalanpur.portal.dto.ApiResponse.<Void>builder()
+                    .status("success")
+                    .message("Department deleted successfully")
+                    .build();
+            
+            return ResponseEntity.ok(response);
+        } catch (NumberFormatException e) {
+            log.error("Invalid department ID format: {}", id, e);
+            return ResponseEntity.ok(
+                in.gppalanpur.portal.dto.ApiResponse.<Void>builder()
+                    .status("error")
+                    .message("Invalid department ID format: " + e.getMessage())
+                    .build()
+            );
+        } catch (Exception e) {
+            log.error("Error deleting department with ID: {}", id, e);
+            return ResponseEntity.ok(
+                in.gppalanpur.portal.dto.ApiResponse.<Void>builder()
+                    .status("error")
+                    .message("Failed to delete department: " + e.getMessage())
+                    .build()
+            );
+        }
     }
+    
+    // Test endpoint removed
     
     @GetMapping("/stats")
     @Operation(summary = "Get department statistics")
-    public ResponseEntity<Map<String, Object>> getDepartmentStats() {
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<Map<String, Object>>> getDepartmentStats() {
         Map<String, Object> stats = departmentService.getDepartmentStats();
-        return ResponseEntity.ok(stats);
+        
+        in.gppalanpur.portal.dto.ApiResponse<Map<String, Object>> response = in.gppalanpur.portal.dto.ApiResponse.<Map<String, Object>>builder()
+                .status("success")
+                .message("Department statistics retrieved successfully")
+                .data(Map.of("stats", stats))
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
     
     @PostMapping("/import")
     @Operation(summary = "Import departments from CSV file")
-    public ResponseEntity<DepartmentImportResult> importDepartments(@RequestBody MultipartFile file) {
+    public ResponseEntity<in.gppalanpur.portal.dto.ApiResponse<DepartmentImportResult>> importDepartments(@RequestBody MultipartFile file) {
         DepartmentImportResult result = departmentService.importDepartments(file);
-        return ResponseEntity.ok(result);
+        
+        in.gppalanpur.portal.dto.ApiResponse<DepartmentImportResult> response = in.gppalanpur.portal.dto.ApiResponse.<DepartmentImportResult>builder()
+                .status("success")
+                .message("Departments imported successfully")
+                .data(Map.of("result", result))
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
     
     @GetMapping("/export")
-    @Operation(summary = "Export departments to CSV")
+    @Operation(summary = "Export departments to CSV file")
     public ResponseEntity<byte[]> exportDepartments() {
-        byte[] csvFile = departmentService.exportDepartments();
+        byte[] csvBytes = departmentService.exportDepartments();
         
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("text/csv"));
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDispositionFormData("attachment", "departments.csv");
         
-        return new ResponseEntity<>(csvFile, headers, HttpStatus.OK);
+        return new ResponseEntity<>(csvBytes, headers, HttpStatus.OK);
     }
 }

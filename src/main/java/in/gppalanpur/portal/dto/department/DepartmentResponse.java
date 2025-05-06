@@ -19,6 +19,10 @@ import lombok.NoArgsConstructor;
 public class DepartmentResponse {
     
     private Long id;
+    
+    // Added _id field to match React frontend expectations
+    private String _id;
+    
     private String name;
     private String code;
     private String description;
@@ -42,6 +46,7 @@ public class DepartmentResponse {
     @AllArgsConstructor
     public static class HodDetails {
         private Long id;
+        private String _id; // Added to match React frontend expectations
         private String name;
         private String email;
     }

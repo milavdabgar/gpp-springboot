@@ -26,7 +26,7 @@ public class UpdateDepartmentRequest {
     
     private Long hodId;
     
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     private LocalDate establishedDate;
     
     private Boolean isActive;

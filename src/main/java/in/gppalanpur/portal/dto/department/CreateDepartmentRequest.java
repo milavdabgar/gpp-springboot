@@ -32,7 +32,7 @@ public class CreateDepartmentRequest {
     private Long hodId;
     
     @NotNull
-    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
     private LocalDate establishedDate;
     
     @Builder.Default

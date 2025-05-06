@@ -67,6 +67,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/health").permitAll()
                 .requestMatchers("/").permitAll() // Allow public access to the home endpoint
+                .requestMatchers("/api/**").authenticated() // Explicitly specify /api/** endpoints
                 .anyRequest().authenticated()
             );
 
