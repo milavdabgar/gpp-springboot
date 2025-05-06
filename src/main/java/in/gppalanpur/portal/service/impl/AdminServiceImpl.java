@@ -55,8 +55,9 @@ public class AdminServiceImpl implements AdminService {
     private final DepartmentRepository departmentRepository;
     private final PasswordEncoder passwordEncoder;
     
-    private static final List<String> AVAILABLE_ROLES = Arrays.asList(
-            "student", "faculty", "hod", "principal", "admin", "jury");
+    // Using a CopyOnWriteArrayList for thread safety
+    private static final List<String> AVAILABLE_ROLES = new java.util.concurrent.CopyOnWriteArrayList<>(
+            Arrays.asList("student", "faculty", "hod", "principal", "admin", "jury"));
     
     private static final String[] CSV_HEADERS = {
             "Name", "Email", "Department", "Roles", "Selected Role"
@@ -382,6 +383,358 @@ public class AdminServiceImpl implements AdminService {
     @Override
     public List<String> getAllRoles() {
         return new ArrayList<>(AVAILABLE_ROLES);
+    }
+    
+    @Override
+    public Map<String, Object> getRole(String roleId) {
+        // Validate role exists
+        if (!AVAILABLE_ROLES.contains(roleId)) {
+            throw new ResourceNotFoundException("Role not found with id: " + roleId);
+        }
+        
+        // Create role object with appropriate permissions based on role type
+        Map<String, Object> roleMap = new HashMap<>();
+        roleMap.put("_id", roleId);
+        roleMap.put("name", roleId);
+        roleMap.put("description", "Role for " + roleId + " users");
+        
+        // Add CRUD permissions based on role type
+        List<String> permissions = new ArrayList<>();
+        
+        // According to the Express model, permissions are: create, read, update, delete
+        if ("admin".equals(roleId)) {
+            // Admin has all permissions
+            permissions.add("create");
+            permissions.add("read");
+            permissions.add("update");
+            permissions.add("delete");
+        } else if ("faculty".equals(roleId) || "hod".equals(roleId) || "principal".equals(roleId)) {
+            // Faculty, HOD, and Principal have create, read, update permissions
+            permissions.add("create");
+            permissions.add("read");
+            permissions.add("update");
+        } else if ("jury".equals(roleId)) {
+            // Jury has read and update permissions
+            permissions.add("read");
+            permissions.add("update");
+        } else if ("student".equals(roleId)) {
+            // Students have read permission only
+            permissions.add("read");
+        }
+        roleMap.put("permissions", permissions);
+        
+        // Format dates in ISO format
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String formattedDate = sdf.format(new java.util.Date());
+        roleMap.put("createdAt", formattedDate);
+        roleMap.put("updatedAt", formattedDate);
+        
+        return roleMap;
+    }
+    
+    @Override
+    public Map<String, Object> createRole(in.gppalanpur.portal.dto.admin.RoleUpdateRequest request) {
+        // Validate role name
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new BadRequestException("Role name is required");
+        }
+        
+        // Validate permissions
+        List<String> validPermissions = Arrays.asList("create", "read", "update", "delete");
+        if (request.getPermissions() != null) {
+            for (String permission : request.getPermissions()) {
+                if (!validPermissions.contains(permission)) {
+                    throw new BadRequestException("Invalid permission: " + permission);
+                }
+            }
+        }
+        
+        String roleId = request.getName().toLowerCase();
+        
+        // Check if the role already exists
+        boolean roleExists = AVAILABLE_ROLES.contains(roleId);
+        
+        // If the role doesn't exist, add it to AVAILABLE_ROLES
+        if (!roleExists) {
+            AVAILABLE_ROLES.add(roleId);
+            log.info("Added new role: {}", roleId);
+        }
+        
+        Map<String, Object> roleMap = new HashMap<>();
+        roleMap.put("_id", roleId);
+        roleMap.put("name", request.getName());
+        roleMap.put("description", request.getDescription() != null ? request.getDescription() : "Role for " + roleId + " users");
+        roleMap.put("permissions", request.getPermissions() != null ? request.getPermissions() : new ArrayList<>());
+        
+        // Format dates in ISO format
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String formattedDate = sdf.format(new java.util.Date());
+        roleMap.put("createdAt", formattedDate);
+        roleMap.put("updatedAt", formattedDate);
+        
+        return roleMap;
+    }
+    
+    @Override
+    public Map<String, Object> updateRole(String roleId, in.gppalanpur.portal.dto.admin.RoleUpdateRequest request) {
+        // Validate role exists
+        if (!AVAILABLE_ROLES.contains(roleId)) {
+            throw new ResourceNotFoundException("Role not found with id: " + roleId);
+        }
+        
+        // Validate permissions
+        List<String> validPermissions = Arrays.asList("create", "read", "update", "delete");
+        if (request.getPermissions() != null) {
+            for (String permission : request.getPermissions()) {
+                if (!validPermissions.contains(permission)) {
+                    throw new BadRequestException("Invalid permission: " + permission);
+                }
+            }
+        }
+        
+        // Handle role name changes
+        String newRoleId = request.getName() != null ? request.getName().toLowerCase() : roleId;
+        
+        // If the role name is changing, update AVAILABLE_ROLES
+        if (!roleId.equals(newRoleId)) {
+            // Remove the old role ID
+            AVAILABLE_ROLES.remove(roleId);
+            
+            // Add the new role ID if it doesn't already exist
+            if (!AVAILABLE_ROLES.contains(newRoleId)) {
+                AVAILABLE_ROLES.add(newRoleId);
+            }
+            
+            log.info("Updated role from {} to {}", roleId, newRoleId);
+        }
+        
+        Map<String, Object> roleMap = new HashMap<>();
+        roleMap.put("_id", newRoleId);
+        roleMap.put("name", request.getName() != null ? request.getName() : roleId);
+        roleMap.put("description", request.getDescription() != null ? request.getDescription() : "Role for " + newRoleId + " users");
+        roleMap.put("permissions", request.getPermissions() != null ? request.getPermissions() : new ArrayList<>());
+        
+        // Format dates in ISO format
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String formattedDate = sdf.format(new java.util.Date());
+        roleMap.put("createdAt", formattedDate);
+        roleMap.put("updatedAt", formattedDate);
+        
+        return roleMap;
+    }
+    
+    @Override
+    public Map<String, Object> deleteRole(String roleId) {
+        // Validate role exists
+        if (!AVAILABLE_ROLES.contains(roleId)) {
+            throw new ResourceNotFoundException("Role not found with id: " + roleId);
+        }
+        
+        // Check if it's a default role that shouldn't be deleted
+        List<String> defaultRoles = Arrays.asList("student", "faculty", "hod", "principal", "admin");
+        if (defaultRoles.contains(roleId)) {
+            throw new BadRequestException("Cannot delete default role: " + roleId);
+        }
+        
+        // Remove the role from AVAILABLE_ROLES
+        boolean removed = AVAILABLE_ROLES.remove(roleId);
+        
+        if (removed) {
+            log.info("Deleted role: {}", roleId);
+        } else {
+            log.warn("Failed to delete role: {}", roleId);
+            throw new BadRequestException("Failed to delete role: " + roleId);
+        }
+        
+        // Return a success response
+        Map<String, Object> response = new HashMap<>();
+        response.put("_id", roleId);
+        response.put("deleted", true);
+        
+        return response;
+    }
+    
+    @Override
+    public byte[] exportRoles() {
+        List<String> roleNames = getAllRoles();
+        
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+             OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
+             CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT.builder()
+                     .setHeader("name", "description", "permissions", "createdAt", "updatedAt")
+                     .build())) {
+            
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+            String formattedDate = sdf.format(new java.util.Date());
+            
+            for (String roleName : roleNames) {
+                List<String> permissions = new ArrayList<>();
+                
+                // Add CRUD permissions based on role type
+                if ("admin".equals(roleName)) {
+                    permissions.add("create,read,update,delete");
+                } else if ("faculty".equals(roleName) || "hod".equals(roleName) || "principal".equals(roleName)) {
+                    permissions.add("create,read,update");
+                } else if ("jury".equals(roleName)) {
+                    permissions.add("read,update");
+                } else if ("student".equals(roleName)) {
+                    permissions.add("read");
+                }
+                
+                printer.printRecord(
+                        roleName,
+                        "Role for " + roleName + " users",
+                        String.join(",", permissions),
+                        formattedDate,
+                        formattedDate
+                );
+            }
+            
+            printer.flush();
+            return out.toByteArray();
+        } catch (IOException e) {
+            log.error("Error exporting roles to CSV", e);
+            throw new RuntimeException("Error exporting roles to CSV", e);
+        }
+    }
+    
+    @Override
+    public Map<String, Object> importRoles(MultipartFile file) {
+        if (file.isEmpty()) {
+            throw new BadRequestException("CSV file is empty");
+        }
+        
+        // Get existing roles to preserve them
+        List<String> existingRoleNames = getAllRoles();
+        
+        // Create a list to store all roles (existing + imported)
+        List<Map<String, Object>> allRoles = new ArrayList<>();
+        
+        // First, add all existing roles to the result list
+        for (String roleName : existingRoleNames) {
+            Map<String, Object> roleMap = getRole(roleName); // Reuse our existing getRole method
+            allRoles.add(roleMap);
+        }
+        
+        // Now process the imported roles
+        List<Map<String, Object>> importedRoles = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+        int totalCount = 0;
+        int successCount = 0;
+        int updatedCount = 0;
+        int newCount = 0;
+        
+        try (InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder()
+                     .setHeader()
+                     .setSkipHeaderRecord(true)
+                     .build())) {
+            
+            for (CSVRecord record : csvParser) {
+                totalCount++;
+                
+                try {
+                    String name = record.get("name");
+                    String description = record.get("description");
+                    String permissionsStr = record.get("permissions");
+                    
+                    // Validate name
+                    if (name == null || name.trim().isEmpty()) {
+                        errors.add("Row " + totalCount + ": Name is required");
+                        continue;
+                    }
+                    
+                    // Validate permissions
+                    List<String> permissions = new ArrayList<>();
+                    if (permissionsStr != null && !permissionsStr.trim().isEmpty()) {
+                        String[] permArray = permissionsStr.split(",");
+                        for (String perm : permArray) {
+                            String trimmedPerm = perm.trim();
+                            if (!Arrays.asList("create", "read", "update", "delete").contains(trimmedPerm)) {
+                                errors.add("Row " + totalCount + ": Invalid permission: " + trimmedPerm);
+                                continue;
+                            }
+                            permissions.add(trimmedPerm);
+                        }
+                    }
+                    
+                    // Check if this is an update to an existing role or a new role
+                    boolean isUpdate = false;
+                    String roleLowerCase = name.toLowerCase();
+                    
+                    // Look for the role in our existing roles
+                    for (int i = 0; i < allRoles.size(); i++) {
+                        Map<String, Object> existingRole = allRoles.get(i);
+                        if (existingRole.get("_id").equals(roleLowerCase)) {
+                            // Update the existing role
+                            existingRole.put("name", name);
+                            existingRole.put("description", description != null ? description : "Role for " + name + " users");
+                            existingRole.put("permissions", permissions);
+                            
+                            // Format dates in ISO format
+                            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+                            sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                            String formattedDate = sdf.format(new java.util.Date());
+                            existingRole.put("updatedAt", formattedDate);
+                            
+                            isUpdate = true;
+                            updatedCount++;
+                            break;
+                        }
+                    }
+                    
+                    // If not an update, create a new role
+                    if (!isUpdate) {
+                        Map<String, Object> roleMap = new HashMap<>();
+                        roleMap.put("_id", roleLowerCase);
+                        roleMap.put("name", name);
+                        roleMap.put("description", description != null ? description : "Role for " + name + " users");
+                        roleMap.put("permissions", permissions);
+                        
+                        // Format dates in ISO format
+                        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+                        sdf.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                        String formattedDate = sdf.format(new java.util.Date());
+                        roleMap.put("createdAt", formattedDate);
+                        roleMap.put("updatedAt", formattedDate);
+                        
+                        allRoles.add(roleMap);
+                        newCount++;
+                    }
+                    
+                    // Add to imported roles list for the response
+                    Map<String, Object> importedRoleMap = new HashMap<>();
+                    importedRoleMap.put("_id", roleLowerCase);
+                    importedRoleMap.put("name", name);
+                    importedRoleMap.put("description", description != null ? description : "Role for " + name + " users");
+                    importedRoleMap.put("permissions", permissions);
+                    importedRoles.add(importedRoleMap);
+                    
+                    successCount++;
+                } catch (Exception e) {
+                    errors.add("Row " + totalCount + ": " + e.getMessage());
+                }
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalCount", totalCount);
+            result.put("successCount", successCount);
+            result.put("updatedCount", updatedCount);
+            result.put("newCount", newCount);
+            result.put("errorCount", errors.size());
+            result.put("errors", errors);
+            result.put("roles", importedRoles);
+            result.put("allRoles", allRoles);
+            
+            return result;
+        } catch (IOException e) {
+            log.error("Error importing roles from CSV", e);
+            throw new RuntimeException("Error importing roles from CSV", e);
+        }
     }
     
     @Override
